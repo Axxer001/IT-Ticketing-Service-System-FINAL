@@ -184,6 +184,12 @@ tbody tr:hover {
 
 .sla-at-risk { background: rgba(245, 158, 11, 0.05); }
 .sla-breached { background: rgba(239, 68, 68, 0.05); border-left: 4px solid #ef4444; }
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
 </style>
 </head>
 <body>
@@ -213,4 +219,43 @@ tbody tr:hover {
             <div class="stat-label">Tickets At Risk</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value"><?= $complianceStats['avg_response
+            <div class="stat-value"><?= $complianceStats['avg_response_time'] ?></div>
+            <div class="stat-label">Avg Response Time</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 class="card-title">Tickets At Risk</h2>
+        <?php if (count($atRiskTickets) > 0): ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ticket #</th>
+                    <th>Description</th>
+                    <th>Priority</th>
+                    <th>Time Remaining</th>
+                    <th>SLA Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($atRiskTickets as $ticket): ?>
+                <tr class="<?= $ticket['sla_status'] == 'breached' ? 'sla-breached' : 'sla-at-risk' ?>">
+                    <td><strong><?= htmlspecialchars($ticket['ticket_number']) ?></strong></td>
+                    <td><?= htmlspecialchars(substr($ticket['issue_description'], 0, 50)) ?>...</td>
+                    <td><span class="badge badge-<?= $ticket['priority'] ?>"><?= strtoupper($ticket['priority']) ?></span></td>
+                    <td><?= htmlspecialchars($ticket['time_remaining']) ?></td>
+                    <td><span class="badge badge-<?= $ticket['sla_status'] ?>"><?= strtoupper(str_replace('_', ' ', $ticket['sla_status'])) ?></span></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <div class="empty-state">
+            <p>✅ All tickets are within SLA compliance</p>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,40 +1,80 @@
 <?php
 session_start();
-require_once "../../classes/Analytics.php";
-require_once "../../classes/User.php";
+require_once "../../config/database.php";
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit;
 }
 
-$analyticsObj = new Analytics();
-$userObj = new User();
-$userType = $_SESSION['user_type'];
+$database = new Database();
+$db = $database->getConnection();
 
-// Date range
-$dateFrom = $_GET['date_from'] ?? date('Y-m-d', strtotime('-30 days'));
-$dateTo = $_GET['date_to'] ?? date('Y-m-d');
+// Get date range from query params or default to last 30 days
+$startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+$endDate = $_GET['end_date'] ?? date('Y-m-d');
 
-// Get analytics based on user type
-$analytics = $analyticsObj->getTicketAnalytics($dateFrom, $dateTo);
-$dashboardStats = $analyticsObj->getDashboardStats($userType, $_SESSION['user_id']);
+// Ticket Status Distribution
+$query = "SELECT status, COUNT(*) as count FROM tickets 
+          WHERE created_at BETWEEN :start AND :end GROUP BY status";
+$stmt = $db->prepare($query);
+$stmt->execute(['start' => $startDate, 'end' => $endDate]);
+$statusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-if ($userType === 'admin') {
-    $providerPerformance = $analyticsObj->getProviderPerformance();
-    $departmentPerformance = $analyticsObj->getDepartmentPerformance();
-}
+// Priority Distribution
+$query = "SELECT priority, COUNT(*) as count FROM tickets 
+          WHERE created_at BETWEEN :start AND :end GROUP BY priority";
+$stmt = $db->prepare($query);
+$stmt->execute(['start' => $startDate, 'end' => $endDate]);
+$priorityData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Department Statistics
+$query = "SELECT d.name, COUNT(t.id) as ticket_count 
+          FROM tickets t 
+          JOIN departments d ON t.department_id = d.id 
+          WHERE t.created_at BETWEEN :start AND :end 
+          GROUP BY d.id ORDER BY ticket_count DESC LIMIT 5";
+$stmt = $db->prepare($query);
+$stmt->execute(['start' => $startDate, 'end' => $endDate]);
+$deptData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Daily Ticket Trend (Last 7 days)
+$query = "SELECT DATE(created_at) as date, COUNT(*) as count 
+          FROM tickets 
+          WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+          GROUP BY DATE(created_at) ORDER BY date ASC";
+$stmt = $db->prepare($query);
+$stmt->execute();
+$trendData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Average Resolution Time
+$query = "SELECT AVG(TIMESTAMPDIFF(HOUR, created_at, resolved_at)) as avg_hours 
+          FROM tickets WHERE resolved_at IS NOT NULL 
+          AND created_at BETWEEN :start AND :end";
+$stmt = $db->prepare($query);
+$stmt->execute(['start' => $startDate, 'end' => $endDate]);
+$avgResolution = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Provider Performance
+$query = "SELECT sp.provider_name, 
+          COUNT(t.id) as total_tickets,
+          AVG(sp.rating_average) as avg_rating,
+          SUM(CASE WHEN t.status = 'resolved' THEN 1 ELSE 0 END) as resolved_tickets
+          FROM service_providers sp
+          LEFT JOIN tickets t ON t.assigned_provider_id = sp.id
+          WHERE t.created_at BETWEEN :start AND :end OR t.created_at IS NULL
+          GROUP BY sp.id";
+$stmt = $db->prepare($query);
+$stmt->execute(['start' => $startDate, 'end' => $endDate]);
+$providerStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?= $_SESSION['theme'] ?? 'light' ?>">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Advanced Analytics - Nexon</title>
-<link rel="stylesheet" href="../../assets/css/theme.css">
-<script>
-    const PHP_SESSION_THEME = <?= json_encode($_SESSION['theme'] ?? 'light') ?>;
-</script>
+<title>Analytics Dashboard - Nexon</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
     --primary: #667eea;
@@ -42,7 +82,6 @@ if ($userType === 'admin') {
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
-    --info: #3b82f6;
     --bg-main: #f8fafc;
     --bg-card: #ffffff;
     --text-primary: #1e293b;
@@ -85,6 +124,12 @@ body {
     -webkit-text-fill-color: transparent;
 }
 
+.nav-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
 .back-btn {
     padding: 8px 16px;
     background: var(--bg-main);
@@ -101,66 +146,45 @@ body {
     padding: 0 24px;
 }
 
-.page-header {
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 24px;
 }
 
 .page-title {
     font-size: 28px;
     font-weight: 700;
-    margin-bottom: 8px;
 }
 
-.page-subtitle {
-    color: var(--text-secondary);
-}
-
-.filters {
-    background: var(--bg-card);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 24px;
-    border: 1px solid var(--border-color);
+.date-filter {
     display: flex;
-    gap: 16px;
-    align-items: flex-end;
+    gap: 12px;
+    align-items: center;
 }
 
-.filter-group {
-    flex: 1;
-}
-
-.filter-group label {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--text-secondary);
-}
-
-.filter-group input {
-    width: 100%;
-    padding: 10px 12px;
+.date-filter input {
+    padding: 8px 12px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    background: var(--bg-main);
+    background: var(--bg-card);
     color: var(--text-primary);
-    font-size: 14px;
 }
 
-.btn-primary {
-    padding: 10px 20px;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    color: white;
+.btn {
+    padding: 8px 16px;
     border: none;
     border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
 }
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 20px;
     margin-bottom: 32px;
 }
@@ -171,11 +195,6 @@ body {
     padding: 24px;
     box-shadow: var(--shadow);
     border: 1px solid var(--border-color);
-}
-
-.stat-icon {
-    font-size: 32px;
-    margin-bottom: 12px;
 }
 
 .stat-value {
@@ -190,22 +209,14 @@ body {
     color: var(--text-secondary);
 }
 
-.stat-change {
-    font-size: 12px;
-    margin-top: 8px;
-}
-
-.stat-change.positive { color: var(--success); }
-.stat-change.negative { color: var(--danger); }
-
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
     gap: 24px;
-    margin-bottom: 24px;
+    margin-bottom: 32px;
 }
 
-.card {
+.chart-card {
     background: var(--bg-card);
     border-radius: 16px;
     padding: 24px;
@@ -213,61 +224,28 @@ body {
     border: 1px solid var(--border-color);
 }
 
-.card-title {
+.chart-title {
     font-size: 18px;
     font-weight: 700;
     margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border-color);
 }
 
-.chart-container {
-    height: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.chart-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.chart-label {
-    flex: 0 0 120px;
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.chart-bar-wrapper {
-    flex: 1;
-    height: 32px;
-    background: var(--bg-main);
-    border-radius: 6px;
-    overflow: hidden;
-    position: relative;
-}
-
-.chart-bar-fill {
-    height: 100%;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    transition: width 1s ease;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-right: 12px;
-}
-
-.chart-value {
-    color: white;
-    font-weight: 600;
-    font-size: 12px;
+.table-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+    margin-bottom: 24px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
+}
+
+thead tr {
+    border-bottom: 2px solid var(--border-color);
 }
 
 th {
@@ -276,24 +254,11 @@ th {
     font-weight: 600;
     color: var(--text-secondary);
     font-size: 13px;
-    text-transform: uppercase;
-    border-bottom: 2px solid var(--border-color);
 }
 
 td {
-    padding: 12px;
+    padding: 16px 12px;
     border-bottom: 1px solid var(--border-color);
-    font-size: 14px;
-}
-
-tr:hover {
-    background: var(--bg-main);
-}
-
-@media (max-width: 768px) {
-    .charts-grid {
-        grid-template-columns: 1fr;
-    }
 }
 </style>
 </head>
@@ -301,192 +266,164 @@ tr:hover {
 
 <nav class="navbar">
     <div class="navbar-brand">NEXON Analytics</div>
-    <a href="../dashboard.php" class="back-btn">← Dashboard</a>
+    <div class="nav-actions">
+        <a href="../dashboard.php" class="back-btn">← Dashboard</a>
+    </div>
 </nav>
 
 <div class="container">
-    <div class="page-header">
-        <h1 class="page-title">📊 Advanced Analytics</h1>
-        <p class="page-subtitle">Comprehensive insights and performance metrics</p>
+    <div class="header">
+        <h1 class="page-title">📊 Analytics Dashboard</h1>
+        <form class="date-filter" method="GET">
+            <input type="date" name="start_date" value="<?= $startDate ?>" required>
+            <span>to</span>
+            <input type="date" name="end_date" value="<?= $endDate ?>" required>
+            <button type="submit" class="btn">Apply</button>
+        </form>
     </div>
 
-    <form class="filters" method="GET">
-        <div class="filter-group">
-            <label>From Date</label>
-            <input type="date" name="date_from" value="<?= $dateFrom ?>">
-        </div>
-        <div class="filter-group">
-            <label>To Date</label>
-            <input type="date" name="date_to" value="<?= $dateTo ?>">
-        </div>
-        <button type="submit" class="btn-primary">Apply Filter</button>
-    </form>
-
-    <!-- Key Metrics -->
     <div class="stats-grid">
-        <?php if ($userType === 'admin'): ?>
         <div class="stat-card">
-            <div class="stat-icon">🎫</div>
-            <div class="stat-value"><?= $dashboardStats['total_tickets'] ?? 0 ?></div>
+            <div class="stat-value"><?= array_sum(array_column($statusData, 'count')) ?></div>
             <div class="stat-label">Total Tickets</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">⏳</div>
-            <div class="stat-value"><?= $dashboardStats['pending'] ?? 0 ?></div>
-            <div class="stat-label">Pending</div>
+            <div class="stat-value"><?= round($avgResolution['avg_hours'] ?? 0, 1) ?>h</div>
+            <div class="stat-label">Avg Resolution Time</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">🔄</div>
-            <div class="stat-value"><?= $dashboardStats['active'] ?? 0 ?></div>
-            <div class="stat-label">Active</div>
+            <div class="stat-value"><?= count(array_filter($statusData, fn($s) => $s['status'] === 'resolved')) ?></div>
+            <div class="stat-label">Resolved Tickets</div>
         </div>
         <div class="stat-card">
-            <div class="stat-icon">✅</div>
-            <div class="stat-value"><?= $dashboardStats['resolved_today'] ?? 0 ?></div>
-            <div class="stat-label">Resolved Today</div>
+            <div class="stat-value"><?= count(array_filter($statusData, fn($s) => $s['status'] === 'pending')) ?></div>
+            <div class="stat-label">Pending Tickets</div>
         </div>
-        <?php elseif ($userType === 'employee'): ?>
-        <div class="stat-card">
-            <div class="stat-icon">🎫</div>
-            <div class="stat-value"><?= $dashboardStats['my_tickets'] ?? 0 ?></div>
-            <div class="stat-label">My Tickets</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">⏳</div>
-            <div class="stat-value"><?= $dashboardStats['pending'] ?? 0 ?></div>
-            <div class="stat-label">Pending</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">🔄</div>
-            <div class="stat-value"><?= $dashboardStats['in_progress'] ?? 0 ?></div>
-            <div class="stat-label">In Progress</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">✅</div>
-            <div class="stat-value"><?= $dashboardStats['resolved'] ?? 0 ?></div>
-            <div class="stat-label">Resolved</div>
-        </div>
-        <?php else: ?>
-        <div class="stat-card">
-            <div class="stat-icon">🎫</div>
-            <div class="stat-value"><?= $dashboardStats['assigned'] ?? 0 ?></div>
-            <div class="stat-label">Assigned</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">🔄</div>
-            <div class="stat-value"><?= $dashboardStats['in_progress'] ?? 0 ?></div>
-            <div class="stat-label">In Progress</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">✅</div>
-            <div class="stat-value"><?= $dashboardStats['resolved'] ?? 0 ?></div>
-            <div class="stat-label">Resolved</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">⭐</div>
-            <div class="stat-value"><?= number_format($dashboardStats['avg_rating'] ?? 0, 1) ?></div>
-            <div class="stat-label">Average Rating</div>
-        </div>
-        <?php endif; ?>
     </div>
 
-    <!-- Charts -->
     <div class="charts-grid">
-        <!-- Tickets by Status -->
-        <div class="card">
-            <h2 class="card-title">Tickets by Status</h2>
-            <div class="chart-container">
-                <?php 
-                $total = array_sum(array_column($analytics['by_status'], 'count'));
-                foreach ($analytics['by_status'] as $item): 
-                    $percentage = $total > 0 ? ($item['count'] / $total) * 100 : 0;
-                ?>
-                <div class="chart-bar">
-                    <div class="chart-label"><?= ucfirst(str_replace('_', ' ', $item['status'])) ?></div>
-                    <div class="chart-bar-wrapper">
-                        <div class="chart-bar-fill" style="width: <?= $percentage ?>%">
-                            <span class="chart-value"><?= $item['count'] ?></span>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
+        <div class="chart-card">
+            <h2 class="chart-title">Status Distribution</h2>
+            <canvas id="statusChart"></canvas>
         </div>
-
-        <!-- Tickets by Priority -->
-        <div class="card">
-            <h2 class="card-title">Tickets by Priority</h2>
-            <div class="chart-container">
-                <?php 
-                $priorityTotal = array_sum(array_column($analytics['by_priority'], 'count'));
-                foreach ($analytics['by_priority'] as $item): 
-                    $percentage = $priorityTotal > 0 ? ($item['count'] / $priorityTotal) * 100 : 0;
-                ?>
-                <div class="chart-bar">
-                    <div class="chart-label"><?= ucfirst($item['priority']) ?></div>
-                    <div class="chart-bar-wrapper">
-                        <div class="chart-bar-fill" style="width: <?= $percentage ?>%">
-                            <span class="chart-value"><?= $item['count'] ?></span>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
+        
+        <div class="chart-card">
+            <h2 class="chart-title">Priority Distribution</h2>
+            <canvas id="priorityChart"></canvas>
+        </div>
+        
+        <div class="chart-card">
+            <h2 class="chart-title">Ticket Trend (Last 7 Days)</h2>
+            <canvas id="trendChart"></canvas>
+        </div>
+        
+        <div class="chart-card">
+            <h2 class="chart-title">Top 5 Departments</h2>
+            <canvas id="deptChart"></canvas>
         </div>
     </div>
 
-    <?php if ($userType === 'admin'): ?>
-    <!-- Top Departments -->
-    <div class="card" style="margin-bottom: 24px;">
-        <h2 class="card-title">Top Departments by Volume</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Department</th>
-                    <th>Total Tickets</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach (array_slice($analytics['by_department'], 0, 10) as $dept): ?>
-                <tr>
-                    <td><strong><?= htmlspecialchars($dept['name']) ?></strong></td>
-                    <td><?= $dept['count'] ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-
-    <!-- Provider Performance -->
-    <div class="card">
-        <h2 class="card-title">Service Provider Performance</h2>
+    <div class="table-card">
+        <h2 class="chart-title">Provider Performance</h2>
         <table>
             <thead>
                 <tr>
                     <th>Provider</th>
                     <th>Total Tickets</th>
                     <th>Resolved</th>
-                    <th>Avg Time (hrs)</th>
-                    <th>Rating</th>
+                    <th>Avg Rating</th>
+                    <th>Resolution Rate</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($providerPerformance as $provider): ?>
+                <?php foreach ($providerStats as $provider): ?>
                 <tr>
                     <td><strong><?= htmlspecialchars($provider['provider_name']) ?></strong></td>
                     <td><?= $provider['total_tickets'] ?></td>
                     <td><?= $provider['resolved_tickets'] ?></td>
-                    <td><?= round($provider['avg_resolution_hours'] ?? 0, 1) ?></td>
-                    <td><?= number_format($provider['rating_average'], 1) ?>⭐</td>
+                    <td><?= number_format($provider['avg_rating'], 2) ?> ⭐</td>
+                    <td><?= $provider['total_tickets'] > 0 ? round(($provider['resolved_tickets'] / $provider['total_tickets']) * 100) : 0 ?>%</td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
     </div>
-    <?php endif; ?>
 </div>
 
-<script src="../../assets/js/theme.js"></script>
-<script src="../../assets/js/notifications.js"></script>
+<script>
+// Status Chart
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: <?= json_encode(array_column($statusData, 'status')) ?>,
+        datasets: [{
+            data: <?= json_encode(array_column($statusData, 'count')) ?>,
+            backgroundColor: ['#667eea', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+
+// Priority Chart
+const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+new Chart(priorityCtx, {
+    type: 'pie',
+    data: {
+        labels: <?= json_encode(array_column($priorityData, 'priority')) ?>,
+        datasets: [{
+            data: <?= json_encode(array_column($priorityData, 'count')) ?>,
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626']
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+
+// Trend Chart
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+new Chart(trendCtx, {
+    type: 'line',
+    data: {
+        labels: <?= json_encode(array_column($trendData, 'date')) ?>,
+        datasets: [{
+            label: 'Tickets Created',
+            data: <?= json_encode(array_column($trendData, 'count')) ?>,
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            tension: 0.4,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } }
+    }
+});
+
+// Department Chart
+const deptCtx = document.getElementById('deptChart').getContext('2d');
+new Chart(deptCtx, {
+    type: 'bar',
+    data: {
+        labels: <?= json_encode(array_column($deptData, 'name')) ?>,
+        datasets: [{
+            label: 'Tickets',
+            data: <?= json_encode(array_column($deptData, 'ticket_count')) ?>,
+            backgroundColor: '#667eea'
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } }
+    }
+});
+</script>
+
 </body>
 </html>
