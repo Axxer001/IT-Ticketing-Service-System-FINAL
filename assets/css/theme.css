@@ -13,6 +13,9 @@
     --secondary: #764ba2;
     --secondary-dark: #63408a;
 
+    /* Layout */
+    --sidebar-width: 260px;
+
     /* Status Colors */
     --success: #10b981;
     --success-light: #d1fae5;

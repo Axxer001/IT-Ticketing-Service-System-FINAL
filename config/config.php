@@ -42,6 +42,6 @@ define('ENABLE_EMAIL_NOTIFICATIONS', false); // Set to true when email is config
 define('SMTP_HOST', 'smtp.example.com');
 define('SMTP_PORT', 587);
 define('SMTP_USERNAME', '');
-define('SMTP_PASSWORD', '');
+define('SMTP_PASSWORD', 'xsmtpsib-a54f84d7d183eb901ad80c12fae32aa3bec71062d87417037c16d64b872dfa54-xbJVxEJdwiqaU6v8');
 define('SMTP_FROM_EMAIL', 'noreply@nexon.com');
 define('SMTP_FROM_NAME', 'Nexon IT Support');

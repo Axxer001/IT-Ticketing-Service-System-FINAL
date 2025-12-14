@@ -2,16 +2,18 @@
 require_once __DIR__ . "/Database.php";
 require_once __DIR__ . "/AuditLog.php";
 require_once __DIR__ . "/Notification.php";
-require_once __DIR__ . "/EmailNotification.php"; // NEW
+require_once __DIR__ . "/EmailNotification.php";
 
 /**
- * Optimized Ticket Management Class with Email Notifications
+ * FIXED Ticket Management Class with Email Notifications
+ * CRITICAL FIX: Removed gmail_address column completely
+ * Now uses bound_gmail from users table properly
  */
 class Ticket {
     private $db;
     private $audit;
     private $notification;
-    private $emailNotification; // NEW
+    private $emailNotification;
     
     private $allowedFileTypes = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'];
     private $maxFileSize = 10485760; // 10MB
@@ -21,7 +23,7 @@ class Ticket {
         $this->db = new Database();
         $this->audit = new AuditLog();
         $this->notification = new Notification();
-        $this->emailNotification = new EmailNotification(); // NEW
+        $this->emailNotification = new EmailNotification();
     }
     
     private function generateTicketNumber() {
@@ -53,11 +55,6 @@ class Ticket {
                 return ['success' => false, 'message' => "Required fields are missing"];
             }
             
-            // NEW: Validate Gmail address
-            if (empty($data['gmail_address']) || !filter_var($data['gmail_address'], FILTER_VALIDATE_EMAIL)) {
-                return ['success' => false, 'message' => "Valid Gmail address is required"];
-            }
-            
             // Validate priority
             $validPriorities = ['low', 'medium', 'high', 'critical'];
             if (!in_array($data['priority'] ?? 'medium', $validPriorities)) {
@@ -80,8 +77,12 @@ class Ticket {
             
             $ticketNumber = $this->generateTicketNumber();
             
-            // Single query to get employee info
-            $deptSql = "SELECT department_id, user_id, first_name, last_name FROM employees WHERE id = ?";
+            // FIXED: Get employee info WITH bound_gmail from users table
+            $deptSql = "SELECT e.department_id, e.user_id, e.first_name, e.last_name,
+                               u.bound_gmail, u.email
+                        FROM employees e
+                        JOIN users u ON e.user_id = u.id
+                        WHERE e.id = ?";
             $deptStmt = $this->db->connect()->prepare($deptSql);
             $deptStmt->execute([$employeeId]);
             $employee = $deptStmt->fetch();
@@ -97,11 +98,11 @@ class Ticket {
             $deviceStmt->execute([$data['device_type_id']]);
             $deviceType = $deviceStmt->fetch();
             
-            // Insert ticket - NOW WITH GMAIL ADDRESS
+            // FIXED: Insert ticket WITHOUT gmail_address column
             $sql = "INSERT INTO tickets 
                     (ticket_number, employee_id, department_id, device_type_id, 
-                     device_name, issue_description, priority, gmail_address) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                     device_name, issue_description, priority) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $this->db->connect()->prepare($sql);
             $stmt->execute([
@@ -111,8 +112,7 @@ class Ticket {
                 $data['device_type_id'],
                 htmlspecialchars($data['device_name'], ENT_QUOTES, 'UTF-8'),
                 htmlspecialchars($data['issue_description'], ENT_QUOTES, 'UTF-8'),
-                $data['priority'],
-                $data['gmail_address'] // NEW
+                $data['priority']
             ]);
             
             $ticketId = $this->db->lastInsertId();
@@ -128,15 +128,28 @@ class Ticket {
             // In-app notification (async)
             $this->notification->notifyAdminNewTicketAsync($ticketId, $ticketNumber);
             
-            // NEW: Send email notification to employee
+            // FIXED: Send email using bound_gmail from users table
             $employeeName = $employee['first_name'] . ' ' . $employee['last_name'];
-            $this->emailNotification->notifyTicketCreated(
-                $ticketNumber,
-                $data['gmail_address'],
-                $employeeName,
-                $deviceType['type_name'],
-                $data['priority']
-            );
+            $emailAddress = $employee['bound_gmail'] ?: $employee['email']; // Fallback to email if no bound_gmail
+            
+            if (!empty($emailAddress)) {
+                error_log("📧 Sending ticket creation email to: " . $emailAddress);
+                $emailResult = $this->emailNotification->notifyTicketCreated(
+                    $ticketNumber,
+                    $emailAddress,
+                    $employeeName,
+                    $deviceType['type_name'],
+                    $data['priority']
+                );
+                
+                if ($emailResult) {
+                    error_log("✅ Email sent successfully to: " . $emailAddress);
+                } else {
+                    error_log("❌ Failed to send email to: " . $emailAddress);
+                }
+            } else {
+                error_log("⚠️ No email address found for employee: " . $employeeName);
+            }
             
             $this->db->commit();
             
@@ -144,19 +157,20 @@ class Ticket {
             
         } catch (Exception $e) {
             $this->db->rollback();
-            error_log("Ticket creation error: " . $e->getMessage());
+            error_log("❌ Ticket creation error: " . $e->getMessage());
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }
     
     public function getById($ticketId) {
+        // FIXED: Include bound_gmail in query
         $sql = "SELECT t.*, 
                 e.first_name, e.last_name, e.contact_number, e.user_id as employee_user_id,
-                u.email as employee_email,
+                u.email as employee_email, u.bound_gmail as employee_bound_gmail,
                 d.name as department_name, d.category as department_category,
                 dt.type_name as device_type_name,
                 sp.provider_name, sp.user_id as provider_user_id,
-                spu.email as provider_email
+                spu.email as provider_email, spu.bound_gmail as provider_bound_gmail
                 FROM tickets t
                 JOIN employees e ON t.employee_id = e.id
                 JOIN users u ON e.user_id = u.id
@@ -237,13 +251,16 @@ class Ticket {
         try {
             $this->db->beginTransaction();
             
-            // Get ticket and employee info in single query
-            $sql = "SELECT t.ticket_number, t.priority, t.gmail_address, 
+            // FIXED: Get ticket and email info with bound_gmail
+            $sql = "SELECT t.ticket_number, t.priority, 
                            e.first_name, e.last_name, e.user_id as employee_user_id,
+                           u.bound_gmail as employee_bound_gmail, u.email as employee_email,
                            dt.type_name as device_type_name,
-                           sp.provider_name, spu.email as provider_email
+                           sp.provider_name, 
+                           spu.email as provider_email, spu.bound_gmail as provider_bound_gmail
                     FROM tickets t
                     JOIN employees e ON t.employee_id = e.id
+                    JOIN users u ON e.user_id = u.id
                     JOIN device_types dt ON t.device_type_id = dt.id
                     JOIN service_providers sp ON sp.id = ?
                     JOIN users spu ON sp.user_id = spu.id
@@ -273,29 +290,35 @@ class Ticket {
             $this->notification->notifyTicketAssignmentAsync($ticketId, $providerId, $ticket['ticket_number']);
             $this->notification->notifyTicketStatusChangeAsync($ticketId, $ticket['employee_user_id'], $ticket['ticket_number'], 'assigned');
             
-            // NEW: Send email notifications
+            // FIXED: Send emails with proper email selection
             $employeeName = $ticket['first_name'] . ' ' . $ticket['last_name'];
+            $employeeEmail = $ticket['employee_bound_gmail'] ?: $ticket['employee_email'];
+            $providerEmail = $ticket['provider_bound_gmail'] ?: $ticket['provider_email'];
             
             // Email to employee
-            if ($ticket['gmail_address']) {
-                $this->emailNotification->notifyTicketAssigned(
+            if (!empty($employeeEmail)) {
+                error_log("📧 Sending assignment email to employee: " . $employeeEmail);
+                $result = $this->emailNotification->notifyTicketAssigned(
                     $ticket['ticket_number'],
-                    $ticket['gmail_address'],
+                    $employeeEmail,
                     $employeeName,
                     $ticket['provider_name']
                 );
+                error_log($result ? "✅ Email sent" : "❌ Email failed");
             }
             
             // Email to provider
-            if ($ticket['provider_email']) {
-                $this->emailNotification->notifyProviderNewTicket(
+            if (!empty($providerEmail)) {
+                error_log("📧 Sending assignment email to provider: " . $providerEmail);
+                $result = $this->emailNotification->notifyProviderNewTicket(
                     $ticket['ticket_number'],
-                    $ticket['provider_email'],
+                    $providerEmail,
                     $ticket['provider_name'],
                     $employeeName,
                     $ticket['device_type_name'],
                     $ticket['priority']
                 );
+                error_log($result ? "✅ Email sent" : "❌ Email failed");
             }
             
             $this->db->commit();
@@ -304,7 +327,7 @@ class Ticket {
             
         } catch (Exception $e) {
             $this->db->rollback();
-            error_log("Ticket assignment error: " . $e->getMessage());
+            error_log("❌ Ticket assignment error: " . $e->getMessage());
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }
@@ -318,11 +341,13 @@ class Ticket {
             
             $this->db->beginTransaction();
             
-            // Get current status, employee, and gmail
-            $sql = "SELECT t.status, t.ticket_number, t.gmail_address, 
-                           e.user_id as employee_user_id, e.first_name, e.last_name
+            // FIXED: Get status and bound_gmail
+            $sql = "SELECT t.status, t.ticket_number, 
+                           e.user_id as employee_user_id, e.first_name, e.last_name,
+                           u.bound_gmail as employee_bound_gmail, u.email as employee_email
                     FROM tickets t
                     JOIN employees e ON t.employee_id = e.id
+                    JOIN users u ON e.user_id = u.id
                     WHERE t.id = ?";
             $stmt = $this->db->connect()->prepare($sql);
             $stmt->execute([$ticketId]);
@@ -359,17 +384,21 @@ class Ticket {
             // In-app notification (async)
             $this->notification->notifyTicketStatusChangeAsync($ticketId, $ticket['employee_user_id'], $ticket['ticket_number'], $status);
             
-            // NEW: Send email notification
-            if ($ticket['gmail_address']) {
+            // FIXED: Send email with proper email selection
+            $employeeEmail = $ticket['employee_bound_gmail'] ?: $ticket['employee_email'];
+            
+            if (!empty($employeeEmail)) {
                 $employeeName = $ticket['first_name'] . ' ' . $ticket['last_name'];
-                $this->emailNotification->notifyTicketStatusChange(
+                error_log("📧 Sending status change email to: " . $employeeEmail);
+                $result = $this->emailNotification->notifyTicketStatusChange(
                     $ticket['ticket_number'],
-                    $ticket['gmail_address'],
+                    $employeeEmail,
                     $employeeName,
                     $oldStatus,
                     $status,
                     $comment
                 );
+                error_log($result ? "✅ Email sent" : "❌ Email failed");
             }
             
             $this->db->commit();
@@ -378,7 +407,7 @@ class Ticket {
             
         } catch (Exception $e) {
             $this->db->rollback();
-            error_log("Ticket status update error: " . $e->getMessage());
+            error_log("❌ Ticket status update error: " . $e->getMessage());
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }
@@ -386,40 +415,47 @@ class Ticket {
     public function addComment($ticketId, $userId, $comment) {
         $comment = htmlspecialchars($comment, ENT_QUOTES, 'UTF-8');
         
-        // NEW: Send email notification for comments
+        // FIXED: Send email notification with bound_gmail
         try {
-            // Get ticket and user info
-            $sql = "SELECT t.ticket_number, t.gmail_address, t.employee_id,
+            $sql = "SELECT t.ticket_number, t.employee_id,
                            e.first_name, e.last_name,
-                           u.email as commenter_email, u.user_type,
+                           u.bound_gmail as employee_bound_gmail, u.email as employee_email,
+                           cu.email as commenter_email, cu.user_type,
                            CASE 
-                               WHEN u.user_type = 'employee' THEN CONCAT(emp.first_name, ' ', emp.last_name)
-                               WHEN u.user_type = 'service_provider' THEN sp.provider_name
+                               WHEN cu.user_type = 'employee' THEN CONCAT(emp.first_name, ' ', emp.last_name)
+                               WHEN cu.user_type = 'service_provider' THEN sp.provider_name
                                ELSE 'Admin'
                            END as commenter_name
                     FROM tickets t
                     JOIN employees e ON t.employee_id = e.id
-                    JOIN users u ON u.id = ?
-                    LEFT JOIN employees emp ON emp.user_id = u.id
-                    LEFT JOIN service_providers sp ON sp.user_id = u.id
+                    JOIN users u ON e.user_id = u.id
+                    JOIN users cu ON cu.id = ?
+                    LEFT JOIN employees emp ON emp.user_id = cu.id
+                    LEFT JOIN service_providers sp ON sp.user_id = cu.id
                     WHERE t.id = ?";
             
             $stmt = $this->db->connect()->prepare($sql);
             $stmt->execute([$userId, $ticketId]);
             $info = $stmt->fetch();
             
-            if ($info && $info['gmail_address']) {
-                $recipientName = $info['first_name'] . ' ' . $info['last_name'];
-                $this->emailNotification->notifyNewComment(
-                    $info['ticket_number'],
-                    $info['gmail_address'],
-                    $recipientName,
-                    $info['commenter_name'],
-                    $comment
-                );
+            if ($info) {
+                $recipientEmail = $info['employee_bound_gmail'] ?: $info['employee_email'];
+                
+                if (!empty($recipientEmail)) {
+                    $recipientName = $info['first_name'] . ' ' . $info['last_name'];
+                    error_log("📧 Sending comment email to: " . $recipientEmail);
+                    $result = $this->emailNotification->notifyNewComment(
+                        $info['ticket_number'],
+                        $recipientEmail,
+                        $recipientName,
+                        $info['commenter_name'],
+                        $comment
+                    );
+                    error_log($result ? "✅ Email sent" : "❌ Email failed");
+                }
             }
         } catch (Exception $e) {
-            error_log("Comment email notification error: " . $e->getMessage());
+            error_log("❌ Comment email notification error: " . $e->getMessage());
         }
         
         return $this->logTicketUpdate($ticketId, $userId, 'comment', $comment);

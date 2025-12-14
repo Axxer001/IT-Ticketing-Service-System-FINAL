@@ -3,7 +3,7 @@
  * FIXED: Only creates UI elements if they don't exist
  */
 
-(function() {
+(function () {
     'use strict';
 
     // Only initialize if user is logged in (check for navbar presence)
@@ -40,9 +40,12 @@
 
         getApiBasePath() {
             const path = window.location.pathname;
-            
-            if (path.includes('/admin/') || path.includes('/tickets/') || 
-                path.includes('/provider/') || path.includes('/reports/')) {
+
+            if (path.includes('/admin/') || path.includes('/tickets/') ||
+                path.includes('/provider/') || path.includes('/reports/') ||
+                path.includes('/search/') || path.includes('/calendar/') ||
+                path.includes('/sla/') || path.includes('/batch/') ||
+                path.includes('/analytics/') || path.includes('/printables/')) {
                 return '../../api';
             } else if (path.includes('/public/')) {
                 return '../api';
@@ -74,7 +77,7 @@
                 </div>
                 <div class="notification-list"></div>
             `;
-            
+
             document.body.appendChild(dropdown);
         }
 
@@ -87,9 +90,9 @@
             }
 
             document.addEventListener('click', (e) => {
-                if (this.isDropdownOpen && 
+                if (this.isDropdownOpen &&
                     this.notificationDropdown &&
-                    !this.notificationDropdown.contains(e.target) && 
+                    !this.notificationDropdown.contains(e.target) &&
                     this.notificationBtn &&
                     !this.notificationBtn.contains(e.target)) {
                     this.closeDropdown();
@@ -163,7 +166,7 @@
 
         renderNotifications() {
             if (!this.notificationDropdown) return;
-            
+
             const notificationList = this.notificationDropdown.querySelector('.notification-list');
             if (!notificationList) return;
 
@@ -198,12 +201,12 @@
 
         getTicketUrl(ticketId) {
             const path = window.location.pathname;
-            
-            if (path.includes('/admin/')) {
-                return '../tickets/view.php?id=' + ticketId;
-            } else if (path.includes('/provider/')) {
-                return '../tickets/view.php?id=' + ticketId;
-            } else if (path.includes('/reports/')) {
+
+            if (path.includes('/admin/') || path.includes('/provider/') ||
+                path.includes('/reports/') || path.includes('/search/') ||
+                path.includes('/calendar/') || path.includes('/sla/') ||
+                path.includes('/batch/') || path.includes('/analytics/') ||
+                path.includes('/printables/')) {
                 return '../tickets/view.php?id=' + ticketId;
             } else if (path.includes('/tickets/')) {
                 return 'view.php?id=' + ticketId;
