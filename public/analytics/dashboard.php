@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once "../../config/database.php";
+require_once "../../classes/Database.php";
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $database = new Database();
-$db = $database->getConnection();
+$db = $database->connect();
 
 // Get date range from query params or default to last 30 days
 $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));

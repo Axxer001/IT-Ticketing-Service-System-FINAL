@@ -1,8 +1,8 @@
 <?php
-require_once "Database.php";
-require_once "AuditLog.php";
-require_once "Notification.php";
-require_once "EmailNotification.php"; // NEW
+require_once __DIR__ . "/Database.php";
+require_once __DIR__ . "/AuditLog.php";
+require_once __DIR__ . "/Notification.php";
+require_once __DIR__ . "/EmailNotification.php"; // NEW
 
 /**
  * Optimized Ticket Management Class with Email Notifications

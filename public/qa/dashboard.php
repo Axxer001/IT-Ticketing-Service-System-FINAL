@@ -8,8 +8,8 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
 }
 
 $qaObj = new QualityAssurance();
-$stats = $qaObj->getQAStats();
-$providerPerformance = $qaObj->getProviderPerformance();
+$stats = $qaObj->getQAStatistics();
+$providerPerformance = $qaObj->getProviderScores();
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?= $_SESSION['theme'] ?? 'light' ?>">

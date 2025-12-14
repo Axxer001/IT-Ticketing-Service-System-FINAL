@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once "../../classes/BatchOperations.php";
-require_once "../../config/database.php";
+require_once "../../classes/Database.php";
 
 if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../login.php");
@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
 
 $batchOps = new BatchOperations();
 $database = new Database();
-$db = $database->getConnection();
+$db = $database->connect();
 
 $message = '';
 $messageType = '';

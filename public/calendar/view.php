@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once "../../config/database.php";
+require_once "../../classes/Database.php";
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $database = new Database();
-$db = $database->getConnection();
+$db = $database->connect();
 
 // Get current month/year or from query params
 $month = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('m');

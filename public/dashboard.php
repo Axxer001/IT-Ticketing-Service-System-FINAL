@@ -543,6 +543,7 @@ tbody tr:hover {
     color: var(--text-secondary);
 }
 </style>
+
 </head>
 <body>
 
@@ -601,6 +602,18 @@ tbody tr:hover {
                 <span class="menu-icon">🏠</span>
                 <span class="menu-text">Dashboard</span>
             </a>
+            <a href="search/advanced.php" class="menu-item">
+                <span class="menu-icon">🔍</span>
+                <span class="menu-text">Advanced Search</span>
+            </a>
+            <a href="calendar/view.php" class="menu-item">
+                <span class="menu-icon">📅</span>
+                <span class="menu-text">Calendar</span>
+            </a>
+            <a href="analytics/dashboard.php" class="menu-item">
+                <span class="menu-icon">📈</span>
+                <span class="menu-text">Analytics</span>
+            </a>
             
             <?php if ($userType === 'employee'): ?>
             <a href="tickets/create.php" class="menu-item">
@@ -637,6 +650,18 @@ tbody tr:hover {
             <a href="admin/audit_logs.php" class="menu-item">
                 <span class="menu-icon">📜</span>
                 <span class="menu-text">Audit Logs</span>
+            </a>
+            <a href="sla/monitor.php" class="menu-item">
+                <span class="menu-icon">⏱️</span>
+                <span class="menu-text">SLA Monitor</span>
+            </a>
+            <a href="batch/operations.php" class="menu-item">
+                <span class="menu-icon">⚡</span>
+                <span class="menu-text">Batch Operations</span>
+            </a>
+            <a href="qa/dashboard.php" class="menu-item">
+                <span class="menu-icon">✅</span>
+                <span class="menu-text">QA Dashboard</span>
             </a>
             <?php endif; ?>
         </div>

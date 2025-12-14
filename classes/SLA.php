@@ -1,5 +1,5 @@
 <?php
-require_once "Database.php";
+require_once __DIR__ . "/Database.php";
 
 /**
  * SLA (Service Level Agreement) Management Class
@@ -43,11 +43,30 @@ class SLA {
         $atRisk = [];
         foreach ($tickets as $ticket) {
             $sla = $this->calculateSLA($ticket);
-            if ($sla['response']['status'] === 'breached' || 
-                $sla['response']['status'] === 'at_risk' ||
-                $sla['resolution']['status'] === 'breached' ||
-                $sla['resolution']['status'] === 'at_risk') {
+            
+            // Determine worst status
+            $status = 'on_track';
+            if ($sla['response']['status'] === 'breached' || $sla['resolution']['status'] === 'breached') {
+                $status = 'breached';
+            } elseif ($sla['response']['status'] === 'at_risk' || $sla['resolution']['status'] === 'at_risk') {
+                $status = 'at_risk';
+            }
+            
+            if ($status !== 'on_track') {
                 $ticket['sla'] = $sla;
+                $ticket['sla_status'] = $status;
+                
+                // Calculate time remaining
+                // If response pending, show response time. If response done but resolution pending, show resolution time.
+                $remainingHours = 0;
+                if ($ticket['assigned_at'] === null) {
+                    $remainingHours = $sla['response']['target'] - $sla['response']['actual'];
+                } else {
+                    $remainingHours = $sla['resolution']['target'] - $sla['resolution']['actual'];
+                }
+                
+                $ticket['time_remaining'] = ($remainingHours > 0 ? round($remainingHours, 1) . ' hrs' : 'Overdue');
+                
                 $atRisk[] = $ticket;
             }
         }
@@ -167,8 +186,8 @@ class SLA {
         return [
             'response_compliance' => $responseCompliance,
             'resolution_compliance' => $resolutionCompliance,
-            'avg_response_hours' => round($stats['avg_response_time'] ?? 0, 1),
-            'avg_resolution_hours' => round($stats['avg_resolution_time'] ?? 0, 1)
+            'avg_response_time' => round($stats['avg_response_time'] ?? 0, 1) . ' hrs',
+            'avg_resolution_time' => round($stats['avg_resolution_time'] ?? 0, 1) . ' hrs'
         ];
     }
 }
