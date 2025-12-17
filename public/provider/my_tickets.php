@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once "../../classes/User.php";
 require_once "../../classes/Ticket.php";
@@ -7,6 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'service_provider
     header("Location: ../login.php");
     exit;
 }
+require_once "../includes/sidebar_component.php";
 
 $ticketObj = new Ticket();
 $userObj = new User();
@@ -215,14 +217,9 @@ tr:hover {
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON</div>
-    <div style="display:flex; gap:12px;">
-        <a href="../printables/index.php" class="back-btn">📊 Reports</a>
-        <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-    </div>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <div class="page-header">
         <h1 class="page-title">My Assigned Tickets</h1>
@@ -260,6 +257,7 @@ tr:hover {
                 <p>No tickets assigned to you</p>
             </div>
         <?php else: ?>
+            <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -292,8 +290,10 @@ tr:hover {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         <?php endif; ?>
     </div>
+</div>
 </div>
 <script src="../../assets/js/theme.js"></script>
 <script src="../../assets/js/notifications.js"></script>

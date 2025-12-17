@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once "../includes/sidebar_component.php";
 require_once "../../classes/Database.php";
 
 if (!isset($_SESSION['user_id'])) {
@@ -249,11 +250,9 @@ body {
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON Calendar</div>
-    <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <div class="calendar-header">
         <h1 class="current-month">📅 <?= date('F Y', strtotime("$year-$month-01")) ?></h1>
@@ -327,6 +326,12 @@ body {
         </div>
     </div>
 </div>
+</div>
 
+<script>
+    const PHP_SESSION_THEME = <?= json_encode($_SESSION['theme'] ?? 'light') ?>;
+</script>
+<script src="../../assets/js/theme.js?v=2"></script>
+<script src="../../assets/js/notifications.js?v=2"></script>
 </body>
 </html>

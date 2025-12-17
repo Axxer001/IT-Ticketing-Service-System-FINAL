@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit;
 }
+require_once "../includes/sidebar_component.php";
 
 $slaObj = new SLA();
 $atRiskTickets = $slaObj->getAtRiskTickets();
@@ -194,11 +195,9 @@ tbody tr:hover {
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON SLA Monitor</div>
-    <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <div class="page-header">
         <h1 class="page-title">⏱️ SLA Monitor</h1>
@@ -256,6 +255,12 @@ tbody tr:hover {
         <?php endif; ?>
     </div>
 </div>
+</div>
 
+<script>
+    const PHP_SESSION_THEME = <?= json_encode($_SESSION['theme'] ?? 'light') ?>;
+</script>
+<script src="../../assets/js/theme.js?v=2"></script>
+<script src="../../assets/js/notifications.js?v=2"></script>
 </body>
 </html>

@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once "../classes/User.php";
 
@@ -6,6 +7,7 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
+
 
 $userObj = new User();
 $profile = $userObj->getUserProfile($_SESSION['user_id']);
@@ -361,7 +363,6 @@ input:focus, select:focus {
 </style>
 </head>
 <body>
-
 <nav class="navbar">
     <div class="navbar-brand">NEXON</div>
     <a href="dashboard.php" class="back-btn">← Back to Dashboard</a>

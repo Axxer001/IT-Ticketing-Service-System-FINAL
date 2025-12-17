@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once "../../classes/Ticket.php";
 
@@ -26,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 }
+
+require_once "../includes/sidebar_component.php";
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?= $_SESSION['theme'] ?? 'light' ?>">
@@ -64,9 +67,6 @@ body {
     background: var(--bg-main);
     color: var(--text-primary);
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 24px;
 }
 
@@ -170,6 +170,8 @@ select:focus, textarea:focus {
 </head>
 <body>
 
+<div class="main-content">
+<div class="container" style="display:flex; justify-content:center; align-items:center; min-height:80vh;">
 <div class="card">
     <h1 class="page-title">Update Ticket Status</h1>
     <p class="page-subtitle">Ticket #<?= htmlspecialchars($ticket['ticket_number']) ?></p>
@@ -211,6 +213,8 @@ select:focus, textarea:focus {
         <button type="submit" class="btn btn-primary">Update Ticket</button>
         <a href="../tickets/view.php?id=<?= $ticketId ?>" class="btn btn-secondary" style="display:block; text-align:center; text-decoration:none">Cancel</a>
     </form>
+</div>
+</div>
 </div>
 <script src="../../assets/js/theme.js"></script>
 <script src="../../assets/js/notifications.js"></script>

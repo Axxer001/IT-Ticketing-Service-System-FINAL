@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once "../includes/sidebar_component.php";
 require_once "../../classes/Database.php";
 
 if (!isset($_SESSION['user_id'])) {
@@ -74,7 +75,6 @@ $providerStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Analytics Dashboard - Nexon</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
     --primary: #667eea;
@@ -264,13 +264,9 @@ td {
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON Analytics</div>
-    <div class="nav-actions">
-        <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-    </div>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <div class="header">
         <h1 class="page-title">📊 Analytics Dashboard</h1>
@@ -301,28 +297,6 @@ td {
         </div>
     </div>
 
-    <div class="charts-grid">
-        <div class="chart-card">
-            <h2 class="chart-title">Status Distribution</h2>
-            <canvas id="statusChart"></canvas>
-        </div>
-        
-        <div class="chart-card">
-            <h2 class="chart-title">Priority Distribution</h2>
-            <canvas id="priorityChart"></canvas>
-        </div>
-        
-        <div class="chart-card">
-            <h2 class="chart-title">Ticket Trend (Last 7 Days)</h2>
-            <canvas id="trendChart"></canvas>
-        </div>
-        
-        <div class="chart-card">
-            <h2 class="chart-title">Top 5 Departments</h2>
-            <canvas id="deptChart"></canvas>
-        </div>
-    </div>
-
     <div class="table-card">
         <h2 class="chart-title">Provider Performance</h2>
         <table>
@@ -349,81 +323,13 @@ td {
         </table>
     </div>
 </div>
+</div>
 
 <script>
-// Status Chart
-const statusCtx = document.getElementById('statusChart').getContext('2d');
-new Chart(statusCtx, {
-    type: 'doughnut',
-    data: {
-        labels: <?= json_encode(array_column($statusData, 'status')) ?>,
-        datasets: [{
-            data: <?= json_encode(array_column($statusData, 'count')) ?>,
-            backgroundColor: ['#667eea', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4']
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'bottom' } }
-    }
-});
-
-// Priority Chart
-const priorityCtx = document.getElementById('priorityChart').getContext('2d');
-new Chart(priorityCtx, {
-    type: 'pie',
-    data: {
-        labels: <?= json_encode(array_column($priorityData, 'priority')) ?>,
-        datasets: [{
-            data: <?= json_encode(array_column($priorityData, 'count')) ?>,
-            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#dc2626']
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'bottom' } }
-    }
-});
-
-// Trend Chart
-const trendCtx = document.getElementById('trendChart').getContext('2d');
-new Chart(trendCtx, {
-    type: 'line',
-    data: {
-        labels: <?= json_encode(array_column($trendData, 'date')) ?>,
-        datasets: [{
-            label: 'Tickets Created',
-            data: <?= json_encode(array_column($trendData, 'count')) ?>,
-            borderColor: '#667eea',
-            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-            tension: 0.4,
-            fill: true
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
-    }
-});
-
-// Department Chart
-const deptCtx = document.getElementById('deptChart').getContext('2d');
-new Chart(deptCtx, {
-    type: 'bar',
-    data: {
-        labels: <?= json_encode(array_column($deptData, 'name')) ?>,
-        datasets: [{
-            label: 'Tickets',
-            data: <?= json_encode(array_column($deptData, 'ticket_count')) ?>,
-            backgroundColor: '#667eea'
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
-    }
-});
+    const PHP_SESSION_THEME = <?= json_encode($_SESSION['theme'] ?? 'light') ?>;
 </script>
+<script src="../../assets/js/theme.js?v=2"></script>
+<script src="../../assets/js/notifications.js?v=2"></script>
 
 </body>
 </html>

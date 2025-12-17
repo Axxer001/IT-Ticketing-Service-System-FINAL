@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once "../includes/sidebar_component.php";
 require_once "../../classes/Database.php";
 
 if (!isset($_SESSION['user_id'])) {
@@ -44,10 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['search'])) {
     
     // Keyword search
     if (!empty($_GET['keyword'])) {
-        $query .= " AND (t.ticket_number LIKE :keyword 
-                    OR t.issue_description LIKE :keyword 
-                    OR t.device_name LIKE :keyword)";
-        $params['keyword'] = '%' . $_GET['keyword'] . '%';
+        $query .= " AND (t.ticket_number LIKE :keyword1 
+                    OR t.issue_description LIKE :keyword2 
+                    OR t.device_name LIKE :keyword3)";
+        $searchTerm = '%' . $_GET['keyword'] . '%';
+        $params['keyword1'] = $searchTerm;
+        $params['keyword2'] = $searchTerm;
+        $params['keyword3'] = $searchTerm;
     }
     
     // Status filter
@@ -300,12 +304,10 @@ tbody tr:hover {
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON Advanced Search</div>
-    <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-</nav>
 
-<div class="container">
+
+<div class="main-content">
+    <div class="container">
     <h1 class="page-title">🔍 Advanced Ticket Search</h1>
     
     <div class="search-card">
@@ -426,7 +428,13 @@ tbody tr:hover {
         <?php endif; ?>
     </div>
     <?php endif; ?>
+    </div>
 </div>
 
+<script>
+    const PHP_SESSION_THEME = <?= json_encode($_SESSION['theme'] ?? 'light') ?>;
+</script>
+<script src="../../assets/js/theme.js?v=2"></script>
+<script src="../../assets/js/notifications.js?v=2"></script>
 </body>
 </html>

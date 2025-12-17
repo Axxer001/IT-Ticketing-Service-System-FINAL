@@ -1,4 +1,6 @@
 <?php
+
+
 session_start();
 require_once "../../classes/User.php";
 require_once "../../classes/Ticket.php";
@@ -7,6 +9,7 @@ if (!isset($_SESSION['user_id'])) {
     header("Location: ../login.php");
     exit;
 }
+
 
 $ticketObj = new Ticket();
 $ticketId = $_GET['id'] ?? 0;
@@ -335,19 +338,21 @@ textarea:focus {
     .content-grid {
         grid-template-columns: 1fr;
     }
+    
+    .timeline-header {
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+    }
 }
 </style>
 </head>
 <body>
+    <?php require_once "../includes/sidebar_component.php"; ?>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON</div>
-    <div style="display:flex; gap:12px;">
-        <a href="../printables/index.php" class="back-btn">📊 Reports</a>
-        <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-    </div>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <div class="ticket-header">
         <div class="ticket-number">Ticket #<?= htmlspecialchars($ticket['ticket_number']) ?></div>
@@ -403,7 +408,7 @@ textarea:focus {
                         <div class="timeline-dot"></div>
                         <div class="timeline-header">
                             <span class="timeline-user"><?= htmlspecialchars($update['email']) ?></span>
-                            <span class="timeline-time"><?= date('M j, g:i A', strtotime($update['created_at'])) ?></span>
+                            <span class="timeline-time"><?= (new DateTime($update['created_at']))->setTimezone(new DateTimeZone('Asia/Manila'))->format('M j, g:i A') ?></span>
                         </div>
                         <div class="timeline-content"><?= nl2br(htmlspecialchars($update['message'])) ?></div>
                     </div>
@@ -467,6 +472,7 @@ textarea:focus {
             <?php endif; ?>
         </div>
     </div>
+</div>
 </div>
 <script src="../../assets/js/theme.js"></script>
 <script src="../../assets/js/notifications.js"></script>

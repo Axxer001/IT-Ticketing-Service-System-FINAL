@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once "../../classes/User.php";
 require_once "../../classes/Ticket.php";
@@ -37,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 }
+
+require_once "../includes/sidebar_component.php";
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?= $_SESSION['theme'] ?? 'light' ?>">
@@ -74,10 +77,6 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-main);
     color: var(--text-primary);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     padding: 24px;
 }
 
@@ -190,6 +189,8 @@ textarea:focus {
 </head>
 <body>
 
+<div class="main-content">
+<div class="container" style="display:flex; justify-content:center; align-items:center; min-height:80vh;">
 <div class="card">
     <h1 class="page-title">Rate Service</h1>
     <p class="page-subtitle">How would you rate the service provided by <?= htmlspecialchars($ticket['provider_name']) ?>?</p>
@@ -214,6 +215,8 @@ textarea:focus {
 
         <button type="submit" class="btn" id="submitBtn" disabled>Submit Rating</button>
     </form>
+</div>
+</div>
 </div>
 
 <script>

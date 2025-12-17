@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once "../../classes/User.php";
 
@@ -6,6 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../login.php");
     exit;
 }
+require_once "../includes/sidebar_component.php";
 
 $userObj = new User();
 $db = new Database();
@@ -205,11 +207,9 @@ td {
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON</div>
-    <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <div class="page-header">
         <h1 class="page-title">User Management</h1>
@@ -217,6 +217,7 @@ td {
     </div>
 
     <div class="card">
+        <div class="table-responsive">
         <table>
             <thead>
                 <tr>
@@ -265,7 +266,9 @@ td {
                 <?php endforeach; ?>
             </tbody>
         </table>
+        </div>
     </div>
+</div>
 </div>
 <script src="../../assets/js/theme.js"></script>
 <script src="../../assets/js/notifications.js"></script>

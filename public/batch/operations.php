@@ -8,6 +8,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     exit;
 }
 
+
 $batchOps = new BatchOperations();
 $database = new Database();
 $db = $database->connect();
@@ -292,12 +293,11 @@ input[type="checkbox"] {
 </style>
 </head>
 <body>
+<?php require_once "../includes/sidebar_component.php"; ?>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON Batch Operations</div>
-    <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <h1 class="page-title">⚡ Batch Ticket Operations</h1>
     
@@ -373,6 +373,7 @@ input[type="checkbox"] {
             </tbody>
         </table>
     </div>
+</div>
 </div>
 
 <form id="batchForm" method="POST" style="display: none;">
@@ -468,5 +469,10 @@ function batchPriority() {
 }
 </script>
 
+<script>
+    const PHP_SESSION_THEME = <?= json_encode($_SESSION['theme'] ?? 'light') ?>;
+</script>
+<script src="../../assets/js/theme.js?v=2"></script>
+<script src="../../assets/js/notifications.js?v=2"></script>
 </body>
 </html>

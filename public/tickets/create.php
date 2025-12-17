@@ -18,16 +18,14 @@ $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        // FIXED: Use bound_gmail from user profile instead of manual input
         $data = [
             'device_type_id' => $_POST['device_type_id'],
             'device_name' => $_POST['device_name'],
             'issue_description' => $_POST['issue_description'],
             'priority' => $_POST['priority'],
-            'gmail_address' => $profile['bound_gmail'] ?? $profile['email'] // Use bound Gmail
+            'gmail_address' => $profile['bound_gmail'] ?? $profile['email']
         ];
         
-        // Handle file uploads
         $attachments = [];
         if (isset($_FILES['attachments']) && is_array($_FILES['attachments']['tmp_name'])) {
             foreach ($_FILES['attachments']['tmp_name'] as $key => $tmp_name) {
@@ -68,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const PHP_SESSION_THEME = <?= json_encode($_SESSION['theme'] ?? 'light') ?>;
 </script>
 <style>
+/* Same styles as original file - no changes needed here */
 :root {
     --primary: #667eea;
     --secondary: #764ba2;
@@ -196,7 +195,6 @@ input:focus, select:focus, textarea:focus {
     border-color: var(--primary);
 }
 
-/* FIXED: Read-only field styling */
 input:read-only {
     background: var(--bg-main);
     cursor: not-allowed;
@@ -227,6 +225,15 @@ textarea {
     text-align: center;
     cursor: pointer;
     transition: all 0.3s;
+}
+
+@media (max-width: 600px) {
+    .file-upload-area {
+        padding: 16px;
+    }
+    .upload-icon {
+        font-size: 32px;
+    }
 }
 
 .file-upload-area:hover {
@@ -312,7 +319,6 @@ textarea {
         <?php endif; ?>
 
         <form method="POST" enctype="multipart/form-data" id="ticketForm">
-            <!-- FIXED: Display bound Gmail (read-only) -->
             <div class="form-group">
                 <label>📧 Notification Email</label>
                 <input type="text" 
@@ -390,7 +396,6 @@ textarea {
 </div>
 
 <script>
-// File handling
 const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
 
@@ -408,7 +413,6 @@ fileInput.addEventListener('change', function(e) {
     });
 });
 
-// Form submission with loading state
 document.getElementById('ticketForm').addEventListener('submit', function(e) {
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
@@ -416,5 +420,6 @@ document.getElementById('ticketForm').addEventListener('submit', function(e) {
 });
 </script>
 <script src="../../assets/js/theme.js"></script>
+<script src="../../assets/js/notifications.js"></script>
 </body>
 </html>

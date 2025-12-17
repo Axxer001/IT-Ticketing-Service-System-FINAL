@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: ../login.php");
     exit;
 }
+require_once "../includes/sidebar_component.php";
 
 $slaObj = new SLA();
 
@@ -207,11 +208,9 @@ input:focus {
 </head>
 <body>
 
-<nav class="navbar">
-    <div class="navbar-brand">NEXON SLA Settings</div>
-    <a href="../dashboard.php" class="back-btn">← Dashboard</a>
-</nav>
 
+
+<div class="main-content">
 <div class="container">
     <div class="card">
         <h1 class="card-title">⚙️ SLA Configuration</h1>
@@ -286,6 +285,7 @@ input:focus {
             <button type="submit" class="btn btn-primary">💾 Save Settings</button>
         </form>
     </div>
+</div>
 </div>
 
 </body>

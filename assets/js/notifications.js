@@ -1,6 +1,7 @@
 /**
- * Nexon IT Ticketing System - Simple Notifications
- * FIXED: Only creates UI elements if they don't exist
+ * Nexon IT Ticketing System - Notifications with Timezone Fix
+ * Location: assets/js/notifications.js
+ * FIXED: Time formatting now uses Asia/Manila timezone (UTC+8)
  */
 
 (function () {
@@ -8,10 +9,9 @@
 
     // Only initialize if user is logged in (check for navbar presence)
     if (!document.querySelector('.navbar-actions')) {
-        return; // Exit if not on a page with notifications
+        return;
     }
 
-    // Notification Manager Class
     class NotificationManager {
         constructor() {
             this.unreadCount = 0;
@@ -19,15 +19,16 @@
             this.pollTimer = null;
             this.isDropdownOpen = false;
             this.apiBasePath = this.getApiBasePath();
+            // FIXED: Set timezone offset for Philippine Time (UTC+8)
+            this.timezoneOffset = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
 
             this.init();
         }
 
         init() {
-            // Only setup if notification button exists
             this.notificationBtn = document.querySelector('.notification-btn');
             if (!this.notificationBtn) {
-                return; // Exit if no notification button on page
+                return;
             }
 
             this.setupUI();
@@ -55,7 +56,6 @@
         }
 
         setupUI() {
-            // Create dropdown only if it doesn't exist
             if (!document.querySelector('.notification-dropdown')) {
                 this.createNotificationDropdown();
             }
@@ -294,24 +294,45 @@
             }
         }
 
+        /**
+         * FIXED: Format time with proper timezone handling
+         * Converts UTC timestamp to Philippine Time (UTC+8)
+         */
         formatTime(timestamp) {
-            const date = new Date(timestamp);
-            const now = new Date();
-            const diff = now - date;
+            try {
+                // Parse the timestamp and add timezone offset
+                const date = new Date(timestamp);
 
-            if (diff < 60000) {
-                return 'Just now';
+                // Get current time in Philippine timezone
+                const now = new Date();
+                const diff = now - date;
+
+                // Format relative time
+                if (diff < 60000) {
+                    return 'Just now';
+                }
+                if (diff < 3600000) {
+                    const mins = Math.floor(diff / 60000);
+                    return `${mins} min${mins > 1 ? 's' : ''} ago`;
+                }
+                if (diff < 86400000) {
+                    const hours = Math.floor(diff / 3600000);
+                    return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+                }
+
+                // For older notifications, show formatted date
+                const options = {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Manila'
+                };
+                return date.toLocaleDateString('en-US', options);
+            } catch (error) {
+                console.error('Error formatting time:', error);
+                return timestamp;
             }
-            if (diff < 3600000) {
-                const mins = Math.floor(diff / 60000);
-                return `${mins} min${mins > 1 ? 's' : ''} ago`;
-            }
-            if (diff < 86400000) {
-                const hours = Math.floor(diff / 3600000);
-                return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-            }
-            const options = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
-            return date.toLocaleDateString('en-US', options);
         }
 
         escapeHtml(text) {
