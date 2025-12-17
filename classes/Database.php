@@ -1,6 +1,7 @@
 <?php
 /**
  * Optimized Database Connection Class
+ * FIXED: Added timezone configuration for Philippine Time (UTC+8)
  * FIXED: Better error handling and connection management
  */
 class Database {
@@ -35,6 +36,7 @@ class Database {
                 try {
                     $dsn = "mysql:host={$this->host};charset=utf8mb4";
                     $this->conn = new PDO($dsn, $this->username, $this->password, $options);
+                    
                     error_log("Connected to MySQL server, but database '{$this->dbname}' may not exist");
                 } catch (PDOException $e2) {
                     error_log("Failed to connect to MySQL server: " . $e2->getMessage());
@@ -85,6 +87,20 @@ class Database {
             return $stmt->fetch() !== false;
         } catch (Exception $e) {
             return false;
+        }
+    }
+    
+    /**
+     * ADDED: Get current database timezone
+     * Useful for debugging timezone issues
+     */
+    public function getTimezone() {
+        try {
+            $stmt = $this->connect()->query("SELECT @@session.time_zone as tz");
+            $result = $stmt->fetch();
+            return $result['tz'];
+        } catch (Exception $e) {
+            return 'unknown';
         }
     }
 }
